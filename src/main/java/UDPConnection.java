@@ -20,9 +20,9 @@ public class UDPConnection {
         }
         return null;
     }
-    public void sendMessage(InetAddress address, int port, String message){
+    public synchronized void sendMessage(InetAddress address, int port, byte[] message){
         DatagramPacket sentPacket = new DatagramPacket(new byte[1024], 1024);
-        sentPacket.setData(message.getBytes());
+        sentPacket.setData(message);
         sentPacket.setPort(port);
         sentPacket.setAddress(address);
         try {
@@ -30,5 +30,9 @@ public class UDPConnection {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public DatagramSocket getDatagramSocket() {
+        return datagramSocket;
     }
 }
