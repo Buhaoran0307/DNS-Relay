@@ -13,13 +13,33 @@ public class Utils {
     }
 
     public static HashMap<String,Object> searchIPFromCache(String DNS){
-
-        return new HashMap<>();
+        return cacheMap.get(DNS);
     }
 
     // 从文件中读取信息
     public static void readCacheFromFile(){
         try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
+            BufferedReader bufferedReader = new BufferedReader(fileReader);
+            String line;
+            String[] terms;
+            String DN;
+            HashMap<String,Object> info = new HashMap<>();
+            String type;
+            String[] ips;
+            line = bufferedReader.readLine();
+            while (line != null){
+                terms = line.split(" ");
+                DN = terms[1];
+                type = terms[2];
+                ips = Arrays.copyOfRange(terms, 3, terms.length);
+                info.put(type,ips);
+                cacheMap.put(DN,info);
+                line = bufferedReader.readLine();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        /*try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
             BufferedReader bufferedReader = new BufferedReader(fileReader);
             String line;
             String[] terms;
@@ -47,7 +67,7 @@ public class Utils {
             bufferedReader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
+        }*/
     }
     public static void writeCacheToFile(){
         try (FileWriter fileWriter = new FileWriter("src/main/resources/cache.txt")) {
