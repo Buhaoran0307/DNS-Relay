@@ -1,6 +1,7 @@
 import java.net.DatagramPacket;
 import java.net.SocketException;
-import java.util.Scanner;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.*;
 
 public class DNS_Server extends UDPConnection implements Runnable{
@@ -35,6 +36,9 @@ public class DNS_Server extends UDPConnection implements Runnable{
     public static void main(String[] args) throws SocketException {
         DNS_Server dnsServer = new DNS_Server(Utils.SERVER_PORT);
         dnsServer.service();
+
+        (new cacheSavingTimer()).start(2);
+
         Scanner scanner = new Scanner(System.in);
         while (true){
             if (scanner.next().equals("stop")){
@@ -49,4 +53,21 @@ class RejectedExecutionHandlerImpl implements RejectedExecutionHandler {
         System.out.println(r.toString() + " is rejected");
     }
 
+}
+
+class cacheSavingTimer extends TimerTask{
+    private Timer timer;
+    public void run() {
+        //编写所需要的任务
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String strTime = sdf.format(new Date());
+        System.out.println(strTime);
+    }
+    public void start(long second){
+        this.timer = new Timer();
+        timer.schedule(this, new Date(), second*1000);
+    }
+    public void stop(){
+        this.timer.cancel();
+    }
 }
