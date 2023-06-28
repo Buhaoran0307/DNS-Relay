@@ -4,7 +4,7 @@ import java.util.*;
 public class Utils {
     public static int SERVER_PORT = 53;
     public static String  LOCAL_DNS_ADDRESS = "202.106.0.20";
-    public static HashMap<String,HashMap<String,Object>> cacheMap;
+    public static volatile HashMap<String,HashMap<String,Object>> cacheMap;
     public static ArrayList<String> bannedList;
 
     static {
@@ -18,7 +18,7 @@ public class Utils {
 
     // 从文件中读取信息
     public static void readCacheFromFile(){
-        try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
+        /*try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
             BufferedReader bufferedReader = new BufferedReader(fileReader);
             String line;
             String[] terms;
@@ -38,8 +38,8 @@ public class Utils {
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
-        /*try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
+        }*/
+        try (FileReader fileReader = new FileReader("src/main/resources/cache.txt")) {
             BufferedReader bufferedReader = new BufferedReader(fileReader);
             String line;
             String[] terms;
@@ -52,8 +52,8 @@ public class Utils {
                 info = cacheMap.get(DN);
                 if (info == null){
                     info = new HashMap<>();
-                    info.put("v4",new HashMap<>());
-                    info.put("v6",new HashMap<>());
+                    info.put("v4",new ArrayList<>());
+                    info.put("v6",new ArrayList<>());
                     info.put("timeout",terms[0]);
                     cacheMap.put(DN,info);
                 }
@@ -67,7 +67,7 @@ public class Utils {
             bufferedReader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }*/
+        }
     }
     public static void writeCacheToFile(){
         try (FileWriter fileWriter = new FileWriter("src/main/resources/cache.txt")) {
@@ -76,10 +76,11 @@ public class Utils {
             Iterator<String> kepIterator = keySet.iterator();
             String DN;
             HashMap<String,Object> info;
-            StringBuilder line = new StringBuilder();
+            StringBuilder line;
             String base;
             ArrayList<String> ipTerms;
             while (kepIterator.hasNext()){
+                line = new StringBuilder();
                 DN = kepIterator.next();
                 info = cacheMap.get(DN);
                 line.append(info.get("timeout")).append(" ");

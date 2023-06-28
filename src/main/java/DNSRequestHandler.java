@@ -5,10 +5,8 @@ import javax.crypto.AEADBadTagException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class DNSRequestHandler implements Runnable {
     private final DatagramPacket receivedPacket;
@@ -23,7 +21,6 @@ public class DNSRequestHandler implements Runnable {
     public void run() {
         Message clientRequest;
         Message relayResponse;
-        //Utils.readCacheFromFile();
         try {
             clientRequest = new Message(this.receivedPacket.getData());
             relayResponse = clientRequest.clone();
@@ -31,30 +28,34 @@ public class DNSRequestHandler implements Runnable {
             String domain = clientRequest.getQuestion().getName().toString();
             HashMap<String,Object> info = new HashMap<>();
             String ip;
-            String[] ipv4 = new String[0];
-            String[] ipv6 = new String[0];
+            ArrayList<String> ipv4 = new ArrayList<>();
+            ArrayList<String> ipv6 = new ArrayList<>();
             List<Record> relayRecords = localQuest(records);
             if (relayRecords.isEmpty()){
                 relayRecords = remoteQuest();
                 for (Record record : relayRecords){
+                    System.out.println(">>>>>>>>>>>"+record.getType());
                     switch (record.getType()){
                         case 1 -> {
                             ARecord aRecord = (ARecord)record;
                             ip = aRecord.getAddress().getHostAddress();
-                            ipv4 = Arrays.copyOf(ipv4,ipv4.length+1);
-                            ipv4[ipv4.length-1] = ip;
+                            ipv4.add(ip);
                         }
                         case 28 -> {
                             AAAARecord aaaaRecord = (AAAARecord)record;
                             ip = aaaaRecord.getAddress().getHostAddress();
-                            ipv6 = Arrays.copyOf(ipv6,ipv6.length+1);
-                            ipv6[ipv6.length-1] = ip;
+                            ipv6.add(ip);
+                            System.out.println("============"+ipv6);
                         }
                     }
                 }
                 info.put("v4",ipv4);
                 info.put("v6",ipv6);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+                String strTime = sdf.format(new Date());
+                info.put("timeout",strTime);
                 Utils.cacheMap.put(domain,info);
+                System.out.println(Utils.cacheMap);
             }
             for (Record record : relayRecords){
                 relayResponse.addRecord(record,Section.ANSWER);
@@ -70,14 +71,14 @@ public class DNSRequestHandler implements Runnable {
         List<Record> replayRecord = new ArrayList<>();
         InetAddress answerIp;
         Record responseRecord;
-        String[] ipString;
+        ArrayList<String> ipString;
         for(Record record : records){
             if (!record.getName().toString().equals("1.0.0.127.in-addr.arpa.")){
                 if (Utils.cacheMap.containsKey(record.getName().toString())){
                     HashMap<String,Object> searchMap = Utils.searchIPFromCache(record.getName().toString());
                     switch (record.getType()) {
                         case 1 -> {
-                            ipString = (String[]) searchMap.get("v4");
+                            ipString = Utils.castList(searchMap.get("v4"), String.class);
                             for (String i : ipString) {
                                 try {
                                     answerIp = InetAddress.getByName(i);
@@ -89,7 +90,7 @@ public class DNSRequestHandler implements Runnable {
                             }
                         }
                         case 28 -> {
-                            ipString = (String[]) searchMap.get("v6");
+                            ipString = Utils.castList(searchMap.get("v4"), String.class);
                             for (String i : ipString) {
                                 try {
                                     answerIp = InetAddress.getByName(i);
@@ -113,6 +114,7 @@ public class DNSRequestHandler implements Runnable {
         try {
             UDPConnection relaySocket = new UDPConnection(0);
             relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS),53,this.receivedPacket.getData());
+
             DatagramPacket relayRespond = relaySocket.receiveMessage();
             Message replay  = new Message(relayRespond.getData());
             return replay.getSection(Section.ANSWER);
