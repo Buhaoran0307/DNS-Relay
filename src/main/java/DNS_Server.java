@@ -34,10 +34,12 @@ public class DNS_Server extends UDPConnection implements Runnable{
         }
     }
     public static void main(String[] args) throws SocketException {
+        Utils.readCacheFromFile();
+        Utils.readBannedListFromFile();
         DNS_Server dnsServer = new DNS_Server(Utils.SERVER_PORT);
         dnsServer.service();
 
-        (new cacheSavingTimer()).start(2);
+        (new cacheSavingTimer()).start(5);
 
         Scanner scanner = new Scanner(System.in);
         while (true){
@@ -58,14 +60,20 @@ class RejectedExecutionHandlerImpl implements RejectedExecutionHandler {
 class cacheSavingTimer extends TimerTask{
     private Timer timer;
     public void run() {
-        //编写所需要的任务
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+        Utils.writeCacheToFile();
         String strTime = sdf.format(new Date());
-        System.out.println(strTime);
+        System.out.println("["+strTime+"] saved cache file....done");
+
+        Utils.writeBannedListToFile();
+        strTime = sdf.format(new Date());
+        System.out.println("["+strTime+"] saved banned file....done");
     }
     public void start(long second){
         this.timer = new Timer();
         timer.schedule(this, new Date(), second*1000);
+        System.out.println("[log] saving cache to files every "+second+" seconds.");
     }
     public void stop(){
         this.timer.cancel();
