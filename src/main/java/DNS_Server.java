@@ -62,7 +62,7 @@ class cacheSavingTimer extends TimerTask{
     public void run() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-        //Utils.writeCacheToFile();
+        Utils.writeCacheToFile();
         String strTime = sdf.format(new Date());
         System.out.println("["+strTime+"] saved cache file....done");
 

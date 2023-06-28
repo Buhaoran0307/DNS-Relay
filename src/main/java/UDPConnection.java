@@ -1,3 +1,5 @@
+import org.xbill.DNS.Message;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -13,7 +15,6 @@ public class UDPConnection {
         try {
             DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
             datagramSocket.receive(packet);
-            //System.out.println(packet.getAddress().getHostName() + "(" + packet.getPort() + "):" + new String(packet.getData(), 0, packet.getLength()));
             return packet;
         } catch (IOException e) {
             e.printStackTrace();
