@@ -1,8 +1,6 @@
 import org.xbill.DNS.*;
 import org.xbill.DNS.Record;
 
-import javax.crypto.AEADBadTagException;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
 import java.text.SimpleDateFormat;
@@ -11,7 +9,6 @@ import java.util.*;
 public class DNSRequestHandler implements Runnable {
     private final DatagramPacket receivedPacket;
     private final DNS_Server dnsServer;
-    private final Object cacheLock = new Object();
 
     public DNSRequestHandler(DatagramPacket receivedPacket, DNS_Server dnsServer){
         this.receivedPacket = receivedPacket;
@@ -34,7 +31,7 @@ public class DNSRequestHandler implements Runnable {
             if (relayRecords.isEmpty()){
                 relayRecords = remoteQuest();
                 for (Record record : relayRecords){
-                    System.out.println(">>>>>>>>>>>"+record.getType());
+                    //System.out.println(">>>>>>>>>>>"+record.getType());
                     switch (record.getType()){
                         case 1 -> {
                             ARecord aRecord = (ARecord)record;
@@ -45,7 +42,7 @@ public class DNSRequestHandler implements Runnable {
                             AAAARecord aaaaRecord = (AAAARecord)record;
                             ip = aaaaRecord.getAddress().getHostAddress();
                             ipv6.add(ip);
-                            System.out.println("============"+ipv6);
+                            //System.out.println("============"+ipv6);
                         }
                     }
                 }
@@ -55,7 +52,7 @@ public class DNSRequestHandler implements Runnable {
                 String strTime = sdf.format(new Date());
                 info.put("timeout",strTime);
                 Utils.cacheMap.put(domain,info);
-                System.out.println(Utils.cacheMap);
+                //System.out.println(Utils.cacheMap);
             }
             for (Record record : relayRecords){
                 relayResponse.addRecord(record,Section.ANSWER);
@@ -90,7 +87,7 @@ public class DNSRequestHandler implements Runnable {
                             }
                         }
                         case 28 -> {
-                            ipString = Utils.castList(searchMap.get("v4"), String.class);
+                            ipString = Utils.castList(searchMap.get("v6"), String.class);
                             for (String i : ipString) {
                                 try {
                                     answerIp = InetAddress.getByName(i);
@@ -114,7 +111,6 @@ public class DNSRequestHandler implements Runnable {
         try {
             UDPConnection relaySocket = new UDPConnection(0);
             relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS),53,this.receivedPacket.getData());
-
             DatagramPacket relayRespond = relaySocket.receiveMessage();
             Message replay  = new Message(relayRespond.getData());
             return replay.getSection(Section.ANSWER);
