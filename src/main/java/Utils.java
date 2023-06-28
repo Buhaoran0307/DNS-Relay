@@ -86,22 +86,28 @@ public class Utils {
                 line.append(info.get("timeout")).append(" ");
                 line.append(DN).append(" ");
                 base = line.toString();
-                bufferedWriter.write(base);
-                bufferedWriter.write("v4 ");
                 ipTerms = castList(info.get("v4"), String.class);
-                for (String s : ipTerms){
-                    bufferedWriter.write(s);
-                    bufferedWriter.write(" ");
+                if (!ipTerms.isEmpty()){
+                    bufferedWriter.write(base);
+                    bufferedWriter.write("v4 ");
+                    for (String s : ipTerms){
+                        bufferedWriter.write(s);
+                        bufferedWriter.write(" ");
+                    }
+                    bufferedWriter.newLine();
                 }
-                bufferedWriter.newLine();
-                bufferedWriter.write(base);
-                bufferedWriter.write("v6 ");
+                //bufferedWriter.newLine();
                 ipTerms = castList(info.get("v6"), String.class);
-                for (String s : ipTerms){
-                    bufferedWriter.write(s);
-                    bufferedWriter.write(" ");
+                if (!ipTerms.isEmpty()){
+                    bufferedWriter.write(base);
+                    bufferedWriter.write("v6 ");
+                    for (String s : ipTerms){
+                        bufferedWriter.write(s);
+                        bufferedWriter.write(" ");
+                    }
+                    bufferedWriter.newLine();
                 }
-                bufferedWriter.newLine();
+                //bufferedWriter.newLine();
             }
             bufferedWriter.flush();
             fileWriter.close();
