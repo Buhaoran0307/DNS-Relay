@@ -12,10 +12,11 @@ public class DNSRequestHandler implements Runnable {
     private final DNS_Server dnsServer;
     private static final Logger logger = Logger.getLogger(DNSRequestHandler.class);
 
-    public DNSRequestHandler(DatagramPacket receivedPacket, DNS_Server dnsServer){
+    public DNSRequestHandler(DatagramPacket receivedPacket, DNS_Server dnsServer) {
         this.receivedPacket = receivedPacket;
-        this.dnsServer =dnsServer;
+        this.dnsServer = dnsServer;
     }
+
     @Override
     public void run() {
         Message clientRequest;
@@ -25,12 +26,16 @@ public class DNSRequestHandler implements Runnable {
             relayResponse = clientRequest.clone();
             Record recordsQuest = clientRequest.getQuestion();
             String domain = clientRequest.getQuestion().getName().toString();
-            logger.debug("已捕获DNS解析请求    域名: "+domain);
-            if (domain.equals("1.0.0.127.in-addr.arpa.")){
+            logger.debug("已捕获DNS解析请求    域名: " + domain);
+            if(Utils.bannedList.contains(domain)){
+                logger.info("域名: ["+domain+"] 已被禁止访问");
+                this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), new byte[1024]);
+                return;
+            }
+            if (domain.equals("1.0.0.127.in-addr.arpa.")) {
                 domain = "";
                 logger.info("反向IP地址解析，不做进一步响应。");
             }
-            HashMap<String,Object> info = Utils.cacheMap.get(domain);
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
             ArrayList<InetAddress> relayIps = new ArrayList<>();
@@ -40,85 +45,69 @@ public class DNSRequestHandler implements Runnable {
             calendar.setTime(today);
             calendar.add(Calendar.DATE, 1);
             String strTime = sdf.format(today);
-            switch (recordsQuest.getType()){
+            HashMap<String, Object> info = Utils.cacheMap.get(domain);
+            if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0) {
+                if (info == null) {
+                    logger.info("该域名不在缓存中! 正在远程获取...");
+                } else {
+                    logger.info("缓存中该域名信息已超时！");
+                    Utils.cacheMap.remove(domain);
+                }
+                info = new HashMap<>();
+                relayIps = remoteQuest();
+                for (InetAddress inetAddress : relayIps) {
+                    ipv4.add(inetAddress.getHostAddress());
+                }
+                info.put("v4", ipv4);
+                info.put("timeout", sdf.format(calendar.getTime()));
+                Utils.cacheMap.put(domain, info);
+            }
+            switch (recordsQuest.getType()) {
                 case 1 -> {
                     logger.info("获取ipv4地址...");
-                    if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
-                        if(info == null){
-                            logger.info("该域名不在缓存中! 正在远程获取...");
-                        }else {
-                            logger.info("缓存中该域名信息已超时！");
-                            Utils.cacheMap.remove(domain);
-                        }
-                        info = new HashMap<>();
+                    logger.info("已在缓存中命中该域名！");
+                    ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
+                    if (v4Strings.isEmpty()) {
+                        logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
                         relayIps = remoteQuest();
-                        for (InetAddress inetAddress : relayIps){
+                        for (InetAddress inetAddress : relayIps) {
                             ipv4.add(inetAddress.getHostAddress());
                         }
-                        info.put("v4",ipv4);
-                        info.put("timeout",sdf.format(calendar.getTime()));
-                        Utils.cacheMap.put(domain,info);
-                    }else {
-                        logger.info("已在缓存中命中该域名！");
-                        ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
-                        if (v4Strings.isEmpty()) {
-                            logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
-                            relayIps = remoteQuest();
-                            for (InetAddress inetAddress : relayIps) {
-                                ipv4.add(inetAddress.getHostAddress());
-                            }
-                            info.put("v4", ipv4);
-                            Utils.cacheMap.put(domain, info);
-                        } else {
-                            relayIps = localQuest(recordsQuest, info);
-                        }
+                        info.put("v4", ipv4);
+                        Utils.cacheMap.put(domain, info);
+                    } else {
+                        relayIps = localQuest(recordsQuest, info);
                     }
                     logger.info("获取ipv4地址...done");
                 }
                 case 28 -> {
                     logger.info("获取ipv6地址...");
-                    if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
-                        if(info == null){
-                            logger.info("该域名不在缓存中! 正在远程获取...");
-                        }else {
-                            logger.info("缓存中该域名信息已超时！");
-                            Utils.cacheMap.remove(domain);
-                        }
-                        info = new HashMap<>();
+                    logger.info("已在缓存中命中该域名！");
+                    info = Utils.cacheMap.get(domain);
+                    ArrayList<String> v6Strings = Utils.castList(info.get("v6"), String.class);
+                    if (v6Strings.isEmpty()) {
+                        logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
                         relayIps = remoteQuest();
-                        for (InetAddress inetAddress : relayIps){
+                        for (InetAddress inetAddress : relayIps) {
                             ipv6.add(inetAddress.getHostAddress());
                         }
-                        info.put("v6",ipv6);
-                        info.put("timeout",sdf.format(calendar.getTime()));
-                        Utils.cacheMap.put(domain,info);
-                    }else {
-                        logger.info("已在缓存中命中该域名！");
-                        info = Utils.cacheMap.get(domain);
-                        ArrayList<String> v6Strings = Utils.castList(info.get("v6"),String.class);
-                        if (v6Strings.isEmpty()){
-                            logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
-                            relayIps = remoteQuest();
-                            for (InetAddress inetAddress : relayIps){
-                                ipv6.add(inetAddress.getHostAddress());
-                            }
-                            info.put("v6",ipv6);
-                            Utils.cacheMap.put(domain,info);
-                        } else {
-                            relayIps = localQuest(recordsQuest,info);
-                        }
+                        info.put("v6", ipv6);
+                        Utils.cacheMap.put(domain, info);
+                    } else {
+                        relayIps = localQuest(recordsQuest, info);
                     }
                     logger.info("获取ipv6地址...done");
                 }
                 default -> logger.info("非ipv4或ipv6请求，不做进一步响应。");
             }
-            for (InetAddress inetAddress : relayIps){
+            for (InetAddress inetAddress : relayIps) {
                 Record record = null;
-                switch (recordsQuest.getType()){
-                    case 1 -> record = new ARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
-                    case 28 -> record = new AAAARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
+                switch (recordsQuest.getType()) {
+                    case 1 -> record = new ARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
+                    case 28 ->
+                            record = new AAAARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
                 }
-                relayResponse.addRecord(record,Section.ANSWER);
+                relayResponse.addRecord(record, Section.ANSWER);
             }
             this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
         } catch (Exception e) {
@@ -127,7 +116,7 @@ public class DNSRequestHandler implements Runnable {
     }
 
 
-    private ArrayList<InetAddress> localQuest(Record record, HashMap<String,Object> info){
+    private ArrayList<InetAddress> localQuest(Record record, HashMap<String, Object> info) {
         ArrayList<InetAddress> replayIps = new ArrayList<>();
         InetAddress answerIp;
         ArrayList<String> ipString = new ArrayList<>();
@@ -152,17 +141,18 @@ public class DNSRequestHandler implements Runnable {
         }
         return replayIps;
     }
-    private ArrayList<InetAddress> remoteQuest(){
+
+    private ArrayList<InetAddress> remoteQuest() {
         try {
             UDPConnection relaySocket = new UDPConnection(0);
-            relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS),53,this.receivedPacket.getData());
+            relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS), 53, this.receivedPacket.getData());
             DatagramPacket relayRespond = relaySocket.receiveMessage();
-            Message replay  = new Message(relayRespond.getData());
+            Message replay = new Message(relayRespond.getData());
             ArrayList<InetAddress> relayIps = new ArrayList<>();
-            for (Record record : replay.getSection(Section.ANSWER)){
+            for (Record record : replay.getSection(Section.ANSWER)) {
                 switch (record.getType()) {
                     case 1 -> {
-                        ARecord aRecord = (ARecord)record;
+                        ARecord aRecord = (ARecord) record;
                         relayIps.add(aRecord.getAddress());
                         logger.info("远程获取ipv4地址：" + aRecord.getAddress().getHostAddress());
                     }

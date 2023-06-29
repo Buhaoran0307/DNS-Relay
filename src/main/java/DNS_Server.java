@@ -30,6 +30,7 @@ public class DNS_Server extends UDPConnection implements Runnable{
     public void stop(){
         this.serviceTread.interrupt();
         this.serviceTread = null;
+        executorPool.shutdown();
         logger.info("Relay服务已中止 !");
     }
     @Override
@@ -58,14 +59,14 @@ class cacheSavingTimer extends TimerTask{
         String strTime = sdf.format(new Date());
         logger.info("["+strTime+"] 正在保存缓存文件....done");
 
-        Utils.writeBannedListToFile();
+        Utils.readBannedListFromFile();
         strTime = sdf.format(new Date());
-        logger.info("["+strTime+"] 正在保存黑名单文件....done");
+        logger.info("["+strTime+"] 正在检阅黑名单文件....done");
     }
     public void start(long second){
         this.timer = new Timer();
         timer.schedule(this, new Date(), second*1000);
-        logger.info("启动每 "+second+" 秒保存缓存文件！");
+        logger.info("Relay每 "+second+" 秒保存缓存文件！");
     }
     public void stop(){
         this.timer.cancel();
