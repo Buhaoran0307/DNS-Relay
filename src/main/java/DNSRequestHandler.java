@@ -1,8 +1,6 @@
 import org.xbill.DNS.*;
 import org.xbill.DNS.Record;
 
-import javax.crypto.AEADBadTagException;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
 import java.text.SimpleDateFormat;
@@ -11,7 +9,6 @@ import java.util.*;
 public class DNSRequestHandler implements Runnable {
     private final DatagramPacket receivedPacket;
     private final DNS_Server dnsServer;
-    private final Object cacheLock = new Object();
 
     public DNSRequestHandler(DatagramPacket receivedPacket, DNS_Server dnsServer){
         this.receivedPacket = receivedPacket;
@@ -21,43 +18,100 @@ public class DNSRequestHandler implements Runnable {
     public void run() {
         Message clientRequest;
         Message relayResponse;
+        boolean ipv6Flag = false;
+
         try {
             clientRequest = new Message(this.receivedPacket.getData());
             relayResponse = clientRequest.clone();
-            List<Record> records = clientRequest.getSection(Section.QUESTION);
+            Record recordsQuest = clientRequest.getQuestion();
             String domain = clientRequest.getQuestion().getName().toString();
+            if (domain.equals("1.0.0.127.in-addr.arpa.")){
+                domain = "";
+            }
             HashMap<String,Object> info = new HashMap<>();
             String ip;
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
-            List<Record> relayRecords = localQuest(records);
-            if (relayRecords.isEmpty()){
-                relayRecords = remoteQuest();
-                for (Record record : relayRecords){
-                    System.out.println(">>>>>>>>>>>"+record.getType());
-                    switch (record.getType()){
-                        case 1 -> {
-                            ARecord aRecord = (ARecord)record;
-                            ip = aRecord.getAddress().getHostAddress();
-                            ipv4.add(ip);
+            ArrayList<InetAddress> relayIps = new ArrayList<>();
+            switch (recordsQuest.getType()){
+                case 12 -> {
+
+                }
+                case 1 -> {
+                    if (!Utils.cacheMap.containsKey(domain)){
+                        System.out.println("Not in cacheMap!");
+                        relayIps = remoteQuest();
+                        for (InetAddress inetAddress : relayIps){
+                            ipv4.add(inetAddress.getHostAddress());
                         }
-                        case 28 -> {
-                            AAAARecord aaaaRecord = (AAAARecord)record;
-                            ip = aaaaRecord.getAddress().getHostAddress();
-                            ipv6.add(ip);
-                            System.out.println("============"+ipv6);
+                        info.put("v4",ipv4);
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+                        String strTime = sdf.format(new Date());
+                        info.put("timeout",strTime);
+                        Utils.cacheMap.put(domain,info);
+                    }else {
+                        System.out.println("In cacheMap!");
+                        info = Utils.cacheMap.get(domain);
+                        ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
+                        if (v4Strings.isEmpty()) {
+                            System.out.println("Do not have ipv4 cache!");
+                            relayIps = remoteQuest();
+                            for (InetAddress inetAddress : relayIps) {
+                                ipv4.add(inetAddress.getHostAddress());
+                            }
+                            info.put("v4", ipv4);
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+                            String strTime = sdf.format(new Date());
+                            info.put("timeout", strTime);
+                            Utils.cacheMap.put(domain, info);
+                        } else {
+                            relayIps = localQuest(recordsQuest, info);
                         }
                     }
                 }
-                info.put("v4",ipv4);
-                info.put("v6",ipv6);
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-                String strTime = sdf.format(new Date());
-                info.put("timeout",strTime);
-                Utils.cacheMap.put(domain,info);
-                System.out.println(Utils.cacheMap);
+                case 28 -> {
+                    if (!Utils.cacheMap.containsKey(domain)){
+                        System.out.println("Not in cacheMap!");
+                        relayIps = remoteQuest();
+                        for (InetAddress inetAddress : relayIps){
+                            ipv6.add(inetAddress.getHostAddress());
+                        }
+                        info.put("v6",ipv6);
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+                        String strTime = sdf.format(new Date());
+                        info.put("timeout",strTime);
+                        Utils.cacheMap.put(domain,info);
+
+                    }else {
+                        System.out.println("In cacheMap!");
+                        info = Utils.cacheMap.get(domain);
+                        ArrayList<String> v6Strings = Utils.castList(info.get("v6"),String.class);
+                        if (v6Strings.isEmpty()){
+                            System.out.println("Do not have ipv6 cache!");
+                            relayIps = remoteQuest();
+                            for (InetAddress inetAddress : relayIps){
+                                ipv6.add(inetAddress.getHostAddress());
+                            }
+                            info.put("v6",ipv6);
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+                            String strTime = sdf.format(new Date());
+                            info.put("timeout",strTime);
+                            Utils.cacheMap.put(domain,info);
+                        }
+                        relayIps = localQuest(recordsQuest,info);
+                    }
+                }
             }
-            for (Record record : relayRecords){
+            for (InetAddress inetAddress : relayIps){
+                Record record = null;
+                switch (recordsQuest.getType()){
+                    case 1 -> {
+                        record = new ARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
+                    }
+                    case 28 -> {
+                        record = new AAAARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
+                    }
+                }
                 relayResponse.addRecord(record,Section.ANSWER);
             }
             this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
@@ -67,57 +121,50 @@ public class DNSRequestHandler implements Runnable {
     }
 
 
-    private List<Record> localQuest(List<Record> records){
-        List<Record> replayRecord = new ArrayList<>();
+    private ArrayList<InetAddress> localQuest(Record record, HashMap<String,Object> info){
+        ArrayList<InetAddress> replayIps = new ArrayList<>();
         InetAddress answerIp;
         Record responseRecord;
-        ArrayList<String> ipString;
-        for(Record record : records){
-            if (!record.getName().toString().equals("1.0.0.127.in-addr.arpa.")){
-                if (Utils.cacheMap.containsKey(record.getName().toString())){
-                    HashMap<String,Object> searchMap = Utils.searchIPFromCache(record.getName().toString());
-                    switch (record.getType()) {
-                        case 1 -> {
-                            ipString = Utils.castList(searchMap.get("v4"), String.class);
-                            for (String i : ipString) {
-                                try {
-                                    answerIp = InetAddress.getByName(i);
-                                    responseRecord = new ARecord(record.getName(), record.getDClass(), 64, answerIp);
-                                    replayRecord.add(responseRecord);
-                                } catch (UnknownHostException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        }
-                        case 28 -> {
-                            ipString = Utils.castList(searchMap.get("v4"), String.class);
-                            for (String i : ipString) {
-                                try {
-                                    answerIp = InetAddress.getByName(i);
-                                    responseRecord = new AAAARecord(record.getName(), record.getDClass(), 64, answerIp);
-                                    replayRecord.add(responseRecord);
-                                } catch (UnknownHostException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        }
-                    }
-                    System.out.println("In the cache!");
-                }else {
-                    System.out.println("Not exist in cache!");
-                }
+        ArrayList<String> ipString = new ArrayList<>();
+
+        switch (record.getType()) {
+            case 1 -> {
+                ipString = Utils.castList(info.get("v4"), String.class);
+            }
+            case 28 -> {
+                ipString = Utils.castList(info.get("v6"), String.class);
             }
         }
-        return replayRecord;
+        for (String i : ipString) {
+            try {
+                answerIp = InetAddress.getByName(i);
+                replayIps.add(answerIp);
+            } catch (UnknownHostException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return replayIps;
     }
-    private List<Record> remoteQuest(){
+    private ArrayList<InetAddress> remoteQuest(){
         try {
             UDPConnection relaySocket = new UDPConnection(0);
             relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS),53,this.receivedPacket.getData());
-
             DatagramPacket relayRespond = relaySocket.receiveMessage();
             Message replay  = new Message(relayRespond.getData());
-            return replay.getSection(Section.ANSWER);
+            ArrayList<InetAddress> relayIps = new ArrayList<>();
+            for (Record record : replay.getSection(Section.ANSWER)){
+                switch (record.getType()) {
+                    case 1 -> {
+                        ARecord aRecord = (ARecord)record;
+                        relayIps.add(aRecord.getAddress());
+                    }
+                    case 28 -> {
+                        AAAARecord aaaaRecord = (AAAARecord) record;
+                        relayIps.add(aaaaRecord.getAddress());
+                    }
+                }
+            }
+            return relayIps;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
