@@ -29,8 +29,4 @@ public class UDPConnection {
             throw new RuntimeException(e);
         }
     }
-
-    public DatagramSocket getDatagramSocket() {
-        return datagramSocket;
-    }
 }

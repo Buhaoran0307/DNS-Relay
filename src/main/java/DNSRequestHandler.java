@@ -35,14 +35,6 @@ public class DNSRequestHandler implements Runnable {
                 this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
                 return;
             }
-            /*if (domain.equals("1.0.0.127.in-addr.arpa.")) {
-                logger.info("反向IP地址解析，不做进一步响应。");
-                Header header = relayResponse.getHeader();
-                header.setRcode(3);
-                relayResponse.setHeader(header);
-                this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), new byte[1024]);
-                return;
-            }*/
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
             ArrayList<InetAddress> relayIps = new ArrayList<>();
@@ -55,26 +47,26 @@ public class DNSRequestHandler implements Runnable {
             HashMap<String, Object> info = Utils.cacheMap.get(domain);
             if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0) {
                 if (info == null) {
-                    logger.info("首次查询该域名! 正在远程获取...");
+                    if(Utils.logFlag) logger.info("首次查询该域名! 正在远程获取...");
                 } else {
-                    logger.info("缓存中该域名信息已超时！");
+                    if(Utils.logFlag) logger.info("缓存中该域名信息已超时！");
                     Utils.cacheMap.remove(domain);
                 }
                 info = new HashMap<>();
                 info.put("timeout", sdf.format(calendar.getTime()));
                 Utils.cacheMap.put(domain, info);
             }else {
-                logger.info("已在缓存中命中该域名！");
+                if(Utils.logFlag) logger.info("已在缓存中命中该域名！");
             }
             switch (recordsQuest.getType()) {
                 case 1 -> {
-                    logger.info("获取ipv4地址...");
+                    if(Utils.logFlag) logger.info("获取ipv4地址...");
                     ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
                     if (v4Strings.isEmpty()) {
-                        logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
+                        if(Utils.logFlag) logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
                         relayIps = remoteQuest(info);
                         if((int)info.get("RCode") == 3){
-                            logger.info("该域名不存在 !");
+                            if(Utils.logFlag) logger.info("该域名不存在 !");
                             Utils.bannedList.add(domain);
                             Utils.cacheMap.remove(domain);
                             break;
@@ -87,17 +79,17 @@ public class DNSRequestHandler implements Runnable {
                     } else {
                         relayIps = localQuest(recordsQuest, info);
                     }
-                    logger.info("获取ipv4地址...done");
+                    if(Utils.logFlag) logger.info("获取ipv4地址...done");
                 }
                 case 28 -> {
-                    logger.info("获取ipv6地址...");
+                    if(Utils.logFlag) logger.info("获取ipv6地址...");
                     info = Utils.cacheMap.get(domain);
                     ArrayList<String> v6Strings = Utils.castList(info.get("v6"), String.class);
                     if (v6Strings.isEmpty()) {
-                        logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
+                        if(Utils.logFlag) logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
                         relayIps = remoteQuest(info);
                         if((int)info.get("RCode") == 3){
-                            logger.info("该域名不存在 !");
+                            if(Utils.logFlag) logger.info("该域名不存在 !");
                             Utils.bannedList.add(domain);
                             Utils.cacheMap.remove(domain);
                             break;
@@ -110,9 +102,11 @@ public class DNSRequestHandler implements Runnable {
                     } else {
                         relayIps = localQuest(recordsQuest, info);
                     }
-                    logger.info("获取ipv6地址...done");
+                    if(Utils.logFlag) logger.info("获取ipv6地址...done");
                 }
-                default -> logger.info("非ipv4或ipv6请求，不做进一步响应。");
+                default -> {
+                    if(Utils.logFlag) logger.info("非ipv4或ipv6请求，不做进一步响应。");
+                }
             }
             if((int)info.get("RCode")==3){
                 Header header = relayResponse.getHeader();

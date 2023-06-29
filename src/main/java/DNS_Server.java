@@ -3,7 +3,6 @@ import org.apache.log4j.Logger;
 import java.net.DatagramPacket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -55,14 +54,14 @@ class cacheSavingTimer extends TimerTask{
     private Timer timer;
     public void run() {
         Utils.writeCacheToFile();
-        logger.debug(Utils.cacheMap);
-        logger.info("正在保存缓存文件....done");
+        if(Utils.logFlag) logger.debug("当前内存中缓存为: "+Utils.cacheMap);
+        if(Utils.logFlag) logger.info("正在保存缓存文件....done");
 
         Utils.writeBannedListToFile();
-        logger.info("正在保存黑名单文件....done");
+        if(Utils.logFlag) logger.info("正在保存黑名单文件....done");
 
         Utils.readBannedListFromFile();
-        logger.info("正在检阅黑名单文件....done");
+        if(Utils.logFlag) logger.info("正在检阅黑名单文件....done");
     }
     public void start(long second){
         this.timer = new Timer();

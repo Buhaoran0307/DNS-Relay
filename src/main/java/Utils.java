@@ -9,6 +9,7 @@ public class Utils {
     public static String  LOCAL_DNS_ADDRESS = "202.106.0.20";
     public static volatile HashMap<String,HashMap<String,Object>> cacheMap;
     public static volatile ArrayList<String> bannedList;
+    public static boolean logFlag = false;
 
     static {
         cacheMap = new HashMap<>();
