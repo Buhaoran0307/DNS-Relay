@@ -1,14 +1,12 @@
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.net.*;
 
 public class UDPConnection {
     protected final DatagramSocket datagramSocket;
-    public UDPConnection(int port) throws SocketException {
-        this.datagramSocket = new DatagramSocket(port);
+    public UDPConnection(String address,int port) throws SocketException, UnknownHostException {
+        InetAddress ipAddress = InetAddress.getByName(address);
+        this.datagramSocket = new DatagramSocket(new InetSocketAddress(ipAddress, port));
     }
     public DatagramPacket receiveMessage(){
         try {

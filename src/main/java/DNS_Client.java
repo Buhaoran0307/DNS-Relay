@@ -4,8 +4,8 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 
 public class DNS_Client extends UDPConnection {
-    public DNS_Client(int port) throws SocketException{
-        super(port);
+    public DNS_Client(int port) throws SocketException, UnknownHostException {
+        super("localhost",port);
     }
     public static void main(String[] args) throws SocketException, UnknownHostException {
         DNS_Client dnsClient = new DNS_Client(1413);

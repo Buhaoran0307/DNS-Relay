@@ -3,6 +3,9 @@ import java.util.*;
 
 public class Utils {
     public static int SERVER_PORT = 53;
+    // 10.128.178.154
+    // 127.0.0.1
+    public static String SERVER_ADDRESS = "127.0.0.1";
     public static String  LOCAL_DNS_ADDRESS = "202.106.0.20";
     public static volatile HashMap<String,HashMap<String,Object>> cacheMap;
     public static volatile ArrayList<String> bannedList;

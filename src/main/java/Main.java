@@ -1,15 +1,16 @@
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.Scanner;
 
 public class Main {
-    public static void main(String[] args) throws SocketException {
+    public static void main(String[] args) throws SocketException, UnknownHostException {
         Utils.readCacheFromFile();
         Utils.readBannedListFromFile();
 
-        DNS_Server dnsServer = new DNS_Server(Utils.SERVER_PORT);
+        DNS_Server dnsServer = new DNS_Server(Utils.SERVER_ADDRESS,Utils.SERVER_PORT);
         dnsServer.service();
 
-        (new cacheSavingTimer()).start(5);
+        (new cacheSavingTimer()).start(30);
 
         Scanner scanner = new Scanner(System.in);
         while (true){

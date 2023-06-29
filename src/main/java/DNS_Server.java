@@ -2,6 +2,7 @@ import org.apache.log4j.Logger;
 
 import java.net.DatagramPacket;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
@@ -11,14 +12,14 @@ public class DNS_Server extends UDPConnection implements Runnable{
     private Thread serviceTread;
     private final ThreadPoolExecutor executorPool;
 
-    public DNS_Server(int port) throws SocketException {
-        super(port);
+    public DNS_Server(String address,int port) throws SocketException, UnknownHostException {
+        super(address,port);
         this.executorPool = new ThreadPoolExecutor(50, 100, 10,
                 TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(50),
                 Executors.defaultThreadFactory(),
                 new RejectedExecutionHandlerImpl());
-        logger.debug("成功创建Relay服务实例     "+"监听端口: "+port);
+        logger.debug("成功创建Relay服务实例     "+"Relay地址: "+address+"监听端口: "+port);
     }
 
     public void service(){

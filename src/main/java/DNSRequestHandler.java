@@ -33,8 +33,9 @@ public class DNSRequestHandler implements Runnable {
                 return;
             }
             if (domain.equals("1.0.0.127.in-addr.arpa.")) {
-                domain = "";
                 logger.info("反向IP地址解析，不做进一步响应。");
+                this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), new byte[1024]);
+                return;
             }
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
@@ -143,10 +144,14 @@ public class DNSRequestHandler implements Runnable {
     }
 
     private ArrayList<InetAddress> remoteQuest() {
-        try {
-            UDPConnection relaySocket = new UDPConnection(0);
-            relaySocket.sendMessage(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS), 53, this.receivedPacket.getData());
-            DatagramPacket relayRespond = relaySocket.receiveMessage();
+        try(DatagramSocket relaySocket = new DatagramSocket(0)) {
+            DatagramPacket relayRequest = new DatagramPacket(new byte[1024], 1024);
+            relayRequest.setData(this.receivedPacket.getData());
+            relayRequest.setPort(53);
+            relayRequest.setAddress(InetAddress.getByName(Utils.LOCAL_DNS_ADDRESS));
+            relaySocket.send(relayRequest);
+            DatagramPacket relayRespond = new DatagramPacket(new byte[1024], 1024);
+            relaySocket.receive(relayRespond);
             Message replay = new Message(relayRespond.getData());
             ArrayList<InetAddress> relayIps = new ArrayList<>();
             for (Record record : replay.getSection(Section.ANSWER)) {
