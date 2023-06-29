@@ -28,6 +28,7 @@ public class DNSRequestHandler implements Runnable {
             logger.debug("已捕获DNS解析请求    域名: "+domain);
             if (domain.equals("1.0.0.127.in-addr.arpa.")){
                 domain = "";
+                logger.info("反向IP地址解析，不做进一步响应。");
             }
             HashMap<String,Object> info = Utils.cacheMap.get(domain);
             ArrayList<String> ipv4 = new ArrayList<>();
@@ -40,9 +41,6 @@ public class DNSRequestHandler implements Runnable {
             calendar.add(Calendar.DATE, 1);
             String strTime = sdf.format(today);
             switch (recordsQuest.getType()){
-                case 12 -> {
-
-                }
                 case 1 -> {
                     logger.info("获取ipv4地址...");
                     if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
@@ -106,21 +104,19 @@ public class DNSRequestHandler implements Runnable {
                             }
                             info.put("v6",ipv6);
                             Utils.cacheMap.put(domain,info);
+                        } else {
+                            relayIps = localQuest(recordsQuest,info);
                         }
-                        relayIps = localQuest(recordsQuest,info);
                     }
                     logger.info("获取ipv6地址...done");
                 }
+                default -> logger.info("非ipv4或ipv6请求，不做进一步响应。");
             }
             for (InetAddress inetAddress : relayIps){
                 Record record = null;
                 switch (recordsQuest.getType()){
-                    case 1 -> {
-                        record = new ARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
-                    }
-                    case 28 -> {
-                        record = new AAAARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
-                    }
+                    case 1 -> record = new ARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
+                    case 28 -> record = new AAAARecord(recordsQuest.getName(),recordsQuest.getDClass(),64,inetAddress);
                 }
                 relayResponse.addRecord(record,Section.ANSWER);
             }
@@ -134,15 +130,16 @@ public class DNSRequestHandler implements Runnable {
     private ArrayList<InetAddress> localQuest(Record record, HashMap<String,Object> info){
         ArrayList<InetAddress> replayIps = new ArrayList<>();
         InetAddress answerIp;
-        Record responseRecord;
         ArrayList<String> ipString = new ArrayList<>();
 
         switch (record.getType()) {
             case 1 -> {
                 ipString = Utils.castList(info.get("v4"), String.class);
+                logger.info("获取" + ipString.size() + "个ipv4地址： " + ipString);
             }
             case 28 -> {
                 ipString = Utils.castList(info.get("v6"), String.class);
+                logger.info("获取" + ipString.size() + "个ipv6地址： " + ipString);
             }
         }
         for (String i : ipString) {
@@ -167,10 +164,12 @@ public class DNSRequestHandler implements Runnable {
                     case 1 -> {
                         ARecord aRecord = (ARecord)record;
                         relayIps.add(aRecord.getAddress());
+                        logger.info("远程获取ipv4地址：" + aRecord.getAddress().getHostAddress());
                     }
                     case 28 -> {
                         AAAARecord aaaaRecord = (AAAARecord) record;
                         relayIps.add(aaaaRecord.getAddress());
+                        logger.info("远程获取ipv6地址：" + aaaaRecord.getAddress().getHostAddress());
                     }
                 }
             }
