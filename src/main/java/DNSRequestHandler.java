@@ -1,15 +1,16 @@
+import org.apache.log4j.Logger;
 import org.xbill.DNS.*;
 import org.xbill.DNS.Record;
 
 import java.io.IOException;
 import java.net.*;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.util.*;
 
 public class DNSRequestHandler implements Runnable {
     private final DatagramPacket receivedPacket;
     private final DNS_Server dnsServer;
+    private static final Logger logger = Logger.getLogger(DNSRequestHandler.class);
 
     public DNSRequestHandler(DatagramPacket receivedPacket, DNS_Server dnsServer){
         this.receivedPacket = receivedPacket;
@@ -19,17 +20,16 @@ public class DNSRequestHandler implements Runnable {
     public void run() {
         Message clientRequest;
         Message relayResponse;
-        boolean ipv6Flag = false;
-
         try {
             clientRequest = new Message(this.receivedPacket.getData());
             relayResponse = clientRequest.clone();
             Record recordsQuest = clientRequest.getQuestion();
             String domain = clientRequest.getQuestion().getName().toString();
+            logger.debug("已捕获DNS解析请求    域名: "+domain);
             if (domain.equals("1.0.0.127.in-addr.arpa.")){
                 domain = "";
             }
-            HashMap<String,Object> info = Utils.cacheMap.get(domain);;
+            HashMap<String,Object> info = Utils.cacheMap.get(domain);
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
             ArrayList<InetAddress> relayIps = new ArrayList<>();
@@ -44,11 +44,12 @@ public class DNSRequestHandler implements Runnable {
 
                 }
                 case 1 -> {
+                    logger.info("获取ipv4地址...");
                     if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
                         if(info == null){
-                            System.out.println("Not in cacheMap!");
+                            logger.info("该域名不在缓存中! 正在远程获取...");
                         }else {
-                            System.out.println("cache timeout!");
+                            logger.info("缓存中该域名信息已超时！");
                             Utils.cacheMap.remove(domain);
                         }
                         info = new HashMap<>();
@@ -60,10 +61,10 @@ public class DNSRequestHandler implements Runnable {
                         info.put("timeout",sdf.format(calendar.getTime()));
                         Utils.cacheMap.put(domain,info);
                     }else {
-                        System.out.println("In cacheMap!");
+                        logger.info("已在缓存中命中该域名！");
                         ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
                         if (v4Strings.isEmpty()) {
-                            System.out.println("Do not have ipv4 cache!");
+                            logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
                             relayIps = remoteQuest();
                             for (InetAddress inetAddress : relayIps) {
                                 ipv4.add(inetAddress.getHostAddress());
@@ -74,17 +75,18 @@ public class DNSRequestHandler implements Runnable {
                             relayIps = localQuest(recordsQuest, info);
                         }
                     }
+                    logger.info("获取ipv4地址...done");
                 }
                 case 28 -> {
+                    logger.info("获取ipv6地址...");
                     if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
                         if(info == null){
-                            System.out.println("Not in cacheMap!");
+                            logger.info("该域名不在缓存中! 正在远程获取...");
                         }else {
-                            System.out.println("cache timeout!");
+                            logger.info("缓存中该域名信息已超时！");
                             Utils.cacheMap.remove(domain);
                         }
                         info = new HashMap<>();
-                        System.out.println("Not in cacheMap!");
                         relayIps = remoteQuest();
                         for (InetAddress inetAddress : relayIps){
                             ipv6.add(inetAddress.getHostAddress());
@@ -93,11 +95,11 @@ public class DNSRequestHandler implements Runnable {
                         info.put("timeout",sdf.format(calendar.getTime()));
                         Utils.cacheMap.put(domain,info);
                     }else {
-                        System.out.println("In cacheMap!");
+                        logger.info("已在缓存中命中该域名！");
                         info = Utils.cacheMap.get(domain);
                         ArrayList<String> v6Strings = Utils.castList(info.get("v6"),String.class);
                         if (v6Strings.isEmpty()){
-                            System.out.println("Do not have ipv6 cache!");
+                            logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
                             relayIps = remoteQuest();
                             for (InetAddress inetAddress : relayIps){
                                 ipv6.add(inetAddress.getHostAddress());
@@ -107,6 +109,7 @@ public class DNSRequestHandler implements Runnable {
                         }
                         relayIps = localQuest(recordsQuest,info);
                     }
+                    logger.info("获取ipv6地址...done");
                 }
             }
             for (InetAddress inetAddress : relayIps){

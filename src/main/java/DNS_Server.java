@@ -1,3 +1,5 @@
+import org.apache.log4j.Logger;
+
 import java.net.DatagramPacket;
 import java.net.SocketException;
 import java.text.SimpleDateFormat;
@@ -5,6 +7,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class DNS_Server extends UDPConnection implements Runnable{
+    private static final Logger logger = Logger.getLogger(DNS_Server.class);
     private Thread serviceTread;
     private final ThreadPoolExecutor executorPool;
 
@@ -15,16 +18,19 @@ public class DNS_Server extends UDPConnection implements Runnable{
                 new ArrayBlockingQueue<>(50),
                 Executors.defaultThreadFactory(),
                 new RejectedExecutionHandlerImpl());
+        logger.debug("成功创建Relay服务实例     "+"监听端口: "+port);
     }
 
     public void service(){
         this.serviceTread = new Thread(this);
         this.serviceTread.setDaemon(true);
         this.serviceTread.start();
+        logger.info("Relay正在处理DNS请求...");
     }
     public void stop(){
         this.serviceTread.interrupt();
         this.serviceTread = null;
+        logger.info("Relay服务已中止 !");
     }
     @Override
     public void run() {
@@ -33,47 +39,33 @@ public class DNS_Server extends UDPConnection implements Runnable{
             executorPool.execute(new DNSRequestHandler(receivedPacket,this));
         }
     }
-    public static void main(String[] args) throws SocketException {
-        Utils.readCacheFromFile();
-        Utils.readBannedListFromFile();
-        DNS_Server dnsServer = new DNS_Server(Utils.SERVER_PORT);
-        dnsServer.service();
-
-        (new cacheSavingTimer()).start(5);
-
-        Scanner scanner = new Scanner(System.in);
-        while (true){
-            if (scanner.next().equals("stop")){
-                dnsServer.stop();
-            }
-        }
-    }
 }
 class RejectedExecutionHandlerImpl implements RejectedExecutionHandler {
+    private static final Logger logger = Logger.getLogger(RejectedExecutionHandlerImpl.class);
     @Override
     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-        System.out.println(r.toString() + " is rejected");
+        logger.error(r.toString() + " 被拒绝！ 线程池溢出！");
     }
 
 }
-
 class cacheSavingTimer extends TimerTask{
+    private static final Logger logger = Logger.getLogger(cacheSavingTimer.class);
     private Timer timer;
     public void run() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         Utils.writeCacheToFile();
         String strTime = sdf.format(new Date());
-        System.out.println("["+strTime+"] saved cache file....done");
+        logger.info("["+strTime+"] 正在保存缓存文件....done");
 
         Utils.writeBannedListToFile();
         strTime = sdf.format(new Date());
-        System.out.println("["+strTime+"] saved banned file....done");
+        logger.info("["+strTime+"] 正在保存黑名单文件....done");
     }
     public void start(long second){
         this.timer = new Timer();
         timer.schedule(this, new Date(), second*1000);
-        System.out.println("[log] saving cache to files every "+second+" seconds.");
+        logger.info("启动每 "+second+" 秒保存缓存文件！");
     }
     public void stop(){
         this.timer.cancel();
