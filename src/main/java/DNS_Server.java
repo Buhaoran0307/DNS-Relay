@@ -54,16 +54,15 @@ class cacheSavingTimer extends TimerTask{
     private static final Logger logger = Logger.getLogger(cacheSavingTimer.class);
     private Timer timer;
     public void run() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
         Utils.writeCacheToFile();
         logger.debug(Utils.cacheMap);
-        String strTime = sdf.format(new Date());
-        logger.info("["+strTime+"] 正在保存缓存文件....done");
+        logger.info("正在保存缓存文件....done");
+
+        Utils.writeBannedListToFile();
+        logger.info("正在保存黑名单文件....done");
 
         Utils.readBannedListFromFile();
-        strTime = sdf.format(new Date());
-        logger.info("["+strTime+"] 正在检阅黑名单文件....done");
+        logger.info("正在检阅黑名单文件....done");
     }
     public void start(long second){
         this.timer = new Timer();

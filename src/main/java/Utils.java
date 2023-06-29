@@ -114,6 +114,20 @@ public class Utils {
         }
     }
 
+    public static void writeBannedListToFile(){
+        try (FileWriter fileWriter = new FileWriter("src/main/resources/bannedList.txt")){
+            BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+            for (String s : bannedList){
+                bufferedWriter.write(s);
+                bufferedWriter.newLine();
+            }
+            bufferedWriter.flush();
+            bufferedWriter.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     // List<String> list = castList(obj, String.class);
     public static <T> ArrayList<T> castList(Object obj, Class<T> clazz){
         ArrayList<T> result = new ArrayList<>();

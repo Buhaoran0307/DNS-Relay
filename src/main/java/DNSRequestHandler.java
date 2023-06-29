@@ -35,11 +35,14 @@ public class DNSRequestHandler implements Runnable {
                 this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
                 return;
             }
-            if (domain.equals("1.0.0.127.in-addr.arpa.")) {
+            /*if (domain.equals("1.0.0.127.in-addr.arpa.")) {
                 logger.info("反向IP地址解析，不做进一步响应。");
+                Header header = relayResponse.getHeader();
+                header.setRcode(3);
+                relayResponse.setHeader(header);
                 this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), new byte[1024]);
                 return;
-            }
+            }*/
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
             ArrayList<InetAddress> relayIps = new ArrayList<>();
