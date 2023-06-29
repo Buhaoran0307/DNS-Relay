@@ -34,6 +34,7 @@ public class Utils {
                 info = cacheMap.get(DN);
                 if (info == null){
                     info = new HashMap<>();
+                    info.put("RCode",0);
                     info.put("v4",new ArrayList<>());
                     info.put("v6",new ArrayList<>());
                     info.put("timeout",terms[0]);

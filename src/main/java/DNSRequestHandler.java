@@ -29,7 +29,10 @@ public class DNSRequestHandler implements Runnable {
             logger.debug("已捕获DNS解析请求    域名: " + domain);
             if(Utils.bannedList.contains(domain)){
                 logger.info("域名: ["+domain+"] 已被禁止访问");
-                this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), new byte[1024]);
+                Header header = relayResponse.getHeader();
+                header.setRcode(3);
+                relayResponse.setHeader(header);
+                this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
                 return;
             }
             if (domain.equals("1.0.0.127.in-addr.arpa.")) {
@@ -66,7 +69,13 @@ public class DNSRequestHandler implements Runnable {
                     ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
                     if (v4Strings.isEmpty()) {
                         logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
-                        relayIps = remoteQuest();
+                        relayIps = remoteQuest(info);
+                        if((int)info.get("RCode") == 3){
+                            logger.info("该域名不存在 !");
+                            Utils.bannedList.add(domain);
+                            Utils.cacheMap.remove(domain);
+                            break;
+                        }
                         for (InetAddress inetAddress : relayIps) {
                             ipv4.add(inetAddress.getHostAddress());
                         }
@@ -83,7 +92,13 @@ public class DNSRequestHandler implements Runnable {
                     ArrayList<String> v6Strings = Utils.castList(info.get("v6"), String.class);
                     if (v6Strings.isEmpty()) {
                         logger.info("缓存中缺少该域名ipv6地址，正在远程获取...");
-                        relayIps = remoteQuest();
+                        relayIps = remoteQuest(info);
+                        if((int)info.get("RCode") == 3){
+                            logger.info("该域名不存在 !");
+                            Utils.bannedList.add(domain);
+                            Utils.cacheMap.remove(domain);
+                            break;
+                        }
                         for (InetAddress inetAddress : relayIps) {
                             ipv6.add(inetAddress.getHostAddress());
                         }
@@ -96,14 +111,19 @@ public class DNSRequestHandler implements Runnable {
                 }
                 default -> logger.info("非ipv4或ipv6请求，不做进一步响应。");
             }
-            for (InetAddress inetAddress : relayIps) {
-                Record record = null;
-                switch (recordsQuest.getType()) {
-                    case 1 -> record = new ARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
-                    case 28 ->
-                            record = new AAAARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
+            if((int)info.get("RCode")==3){
+                Header header = relayResponse.getHeader();
+                header.setRcode(3);
+                relayResponse.setHeader(header);
+            }else {
+                for (InetAddress inetAddress : relayIps) {
+                    Record record = null;
+                    switch (recordsQuest.getType()) {
+                        case 1 -> record = new ARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
+                        case 28 ->record = new AAAARecord(recordsQuest.getName(), recordsQuest.getDClass(), 64, inetAddress);
+                    }
+                    relayResponse.addRecord(record, Section.ANSWER);
                 }
-                relayResponse.addRecord(record, Section.ANSWER);
             }
             this.dnsServer.sendMessage(receivedPacket.getAddress(), receivedPacket.getPort(), relayResponse.toWire());
         } catch (Exception e) {
@@ -138,7 +158,7 @@ public class DNSRequestHandler implements Runnable {
         return replayIps;
     }
 
-    private ArrayList<InetAddress> remoteQuest() {
+    private ArrayList<InetAddress> remoteQuest(HashMap<String,Object> info) {
         try(DatagramSocket relaySocket = new DatagramSocket(0)) {
             DatagramPacket relayRequest = new DatagramPacket(new byte[1024], 1024);
             relayRequest.setData(this.receivedPacket.getData());
@@ -148,6 +168,9 @@ public class DNSRequestHandler implements Runnable {
             DatagramPacket relayRespond = new DatagramPacket(new byte[1024], 1024);
             relaySocket.receive(relayRespond);
             Message replay = new Message(relayRespond.getData());
+            Header header = replay.getHeader();
+            int rCode = header.getRcode();
+            info.put("RCode",rCode);
             ArrayList<InetAddress> relayIps = new ArrayList<>();
             for (Record record : replay.getSection(Section.ANSWER)) {
                 switch (record.getType()) {

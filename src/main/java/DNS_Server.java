@@ -57,6 +57,7 @@ class cacheSavingTimer extends TimerTask{
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         Utils.writeCacheToFile();
+        logger.debug(Utils.cacheMap);
         String strTime = sdf.format(new Date());
         logger.info("["+strTime+"] 正在保存缓存文件....done");
 
