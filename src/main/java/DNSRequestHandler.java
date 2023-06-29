@@ -4,6 +4,7 @@ import org.xbill.DNS.Record;
 import java.io.IOException;
 import java.net.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class DNSRequestHandler implements Runnable {
@@ -28,30 +29,38 @@ public class DNSRequestHandler implements Runnable {
             if (domain.equals("1.0.0.127.in-addr.arpa.")){
                 domain = "";
             }
-            HashMap<String,Object> info = new HashMap<>();
-            String ip;
+            HashMap<String,Object> info = Utils.cacheMap.get(domain);;
             ArrayList<String> ipv4 = new ArrayList<>();
             ArrayList<String> ipv6 = new ArrayList<>();
             ArrayList<InetAddress> relayIps = new ArrayList<>();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+            Date today = new Date();
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(today);
+            calendar.add(Calendar.DATE, 1);
+            String strTime = sdf.format(today);
             switch (recordsQuest.getType()){
                 case 12 -> {
 
                 }
                 case 1 -> {
-                    if (!Utils.cacheMap.containsKey(domain)){
-                        System.out.println("Not in cacheMap!");
+                    if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
+                        if(info == null){
+                            System.out.println("Not in cacheMap!");
+                        }else {
+                            System.out.println("cache timeout!");
+                            Utils.cacheMap.remove(domain);
+                        }
+                        info = new HashMap<>();
                         relayIps = remoteQuest();
                         for (InetAddress inetAddress : relayIps){
                             ipv4.add(inetAddress.getHostAddress());
                         }
                         info.put("v4",ipv4);
-                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-                        String strTime = sdf.format(new Date());
-                        info.put("timeout",strTime);
+                        info.put("timeout",sdf.format(calendar.getTime()));
                         Utils.cacheMap.put(domain,info);
                     }else {
                         System.out.println("In cacheMap!");
-                        info = Utils.cacheMap.get(domain);
                         ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
                         if (v4Strings.isEmpty()) {
                             System.out.println("Do not have ipv4 cache!");
@@ -60,9 +69,6 @@ public class DNSRequestHandler implements Runnable {
                                 ipv4.add(inetAddress.getHostAddress());
                             }
                             info.put("v4", ipv4);
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-                            String strTime = sdf.format(new Date());
-                            info.put("timeout", strTime);
                             Utils.cacheMap.put(domain, info);
                         } else {
                             relayIps = localQuest(recordsQuest, info);
@@ -70,18 +76,22 @@ public class DNSRequestHandler implements Runnable {
                     }
                 }
                 case 28 -> {
-                    if (!Utils.cacheMap.containsKey(domain)){
+                    if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0){
+                        if(info == null){
+                            System.out.println("Not in cacheMap!");
+                        }else {
+                            System.out.println("cache timeout!");
+                            Utils.cacheMap.remove(domain);
+                        }
+                        info = new HashMap<>();
                         System.out.println("Not in cacheMap!");
                         relayIps = remoteQuest();
                         for (InetAddress inetAddress : relayIps){
                             ipv6.add(inetAddress.getHostAddress());
                         }
                         info.put("v6",ipv6);
-                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-                        String strTime = sdf.format(new Date());
-                        info.put("timeout",strTime);
+                        info.put("timeout",sdf.format(calendar.getTime()));
                         Utils.cacheMap.put(domain,info);
-
                     }else {
                         System.out.println("In cacheMap!");
                         info = Utils.cacheMap.get(domain);
@@ -93,9 +103,6 @@ public class DNSRequestHandler implements Runnable {
                                 ipv6.add(inetAddress.getHostAddress());
                             }
                             info.put("v6",ipv6);
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-                            String strTime = sdf.format(new Date());
-                            info.put("timeout",strTime);
                             Utils.cacheMap.put(domain,info);
                         }
                         relayIps = localQuest(recordsQuest,info);
