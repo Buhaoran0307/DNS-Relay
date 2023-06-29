@@ -14,9 +14,9 @@ public class DNS_Server extends UDPConnection implements Runnable{
 
     public DNS_Server(String address,int port) throws SocketException, UnknownHostException {
         super(address,port);
-        this.executorPool = new ThreadPoolExecutor(50, 100, 10,
+        this.executorPool = new ThreadPoolExecutor(14, 28, 10,
                 TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(50),
+                new ArrayBlockingQueue<>(14),
                 Executors.defaultThreadFactory(),
                 new RejectedExecutionHandlerImpl());
         logger.debug("成功创建Relay服务实例     "+"Relay地址: "+address+"监听端口: "+port);

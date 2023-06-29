@@ -49,24 +49,20 @@ public class DNSRequestHandler implements Runnable {
             HashMap<String, Object> info = Utils.cacheMap.get(domain);
             if (info == null || strTime.compareTo((String) info.get("timeout")) >= 0) {
                 if (info == null) {
-                    logger.info("该域名不在缓存中! 正在远程获取...");
+                    logger.info("首次查询该域名! 正在远程获取...");
                 } else {
                     logger.info("缓存中该域名信息已超时！");
                     Utils.cacheMap.remove(domain);
                 }
                 info = new HashMap<>();
-                relayIps = remoteQuest();
-                for (InetAddress inetAddress : relayIps) {
-                    ipv4.add(inetAddress.getHostAddress());
-                }
-                info.put("v4", ipv4);
                 info.put("timeout", sdf.format(calendar.getTime()));
                 Utils.cacheMap.put(domain, info);
+            }else {
+                logger.info("已在缓存中命中该域名！");
             }
             switch (recordsQuest.getType()) {
                 case 1 -> {
                     logger.info("获取ipv4地址...");
-                    logger.info("已在缓存中命中该域名！");
                     ArrayList<String> v4Strings = Utils.castList(info.get("v4"), String.class);
                     if (v4Strings.isEmpty()) {
                         logger.info("缓存中缺少该域名ipv4地址，正在远程获取...");
@@ -83,7 +79,6 @@ public class DNSRequestHandler implements Runnable {
                 }
                 case 28 -> {
                     logger.info("获取ipv6地址...");
-                    logger.info("已在缓存中命中该域名！");
                     info = Utils.cacheMap.get(domain);
                     ArrayList<String> v6Strings = Utils.castList(info.get("v6"), String.class);
                     if (v6Strings.isEmpty()) {

@@ -10,7 +10,7 @@ public class Main {
         DNS_Server dnsServer = new DNS_Server(Utils.SERVER_ADDRESS,Utils.SERVER_PORT);
         dnsServer.service();
 
-        (new cacheSavingTimer()).start(30);
+        (new cacheSavingTimer()).start(10);
 
         Scanner scanner = new Scanner(System.in);
         while (true){
